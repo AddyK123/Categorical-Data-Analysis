@@ -1,0 +1,97 @@
+---
+title: "Categorical Pset 7"
+author: "Aditya Khera"
+date: "5/10/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+data <- read.csv("/Users/adityakhera/Desktop/Statistics/Categorical Data/MBTI.csv")
+data$EI <- factor(data$EI)
+data$SN <- factor(data$SN)
+data$TF <- factor(data$TF)
+data$JP <- factor(data$JP)
+```
+
+```{r problem 1a}
+mod.sat <- glm(n ~ EI*SN*TF*JP, data = data, family = poisson(link=log))
+mod.ind <- glm(n ~ EI+SN+TF+JP, data = data, family = poisson(link=log))
+
+anova(mod.sat, mod.ind, test = "Chisq")
+```
+In a goodness of fit test we find that the p-value for the difference between the two models is <<.01 (LRT statistic of 135.87) indicating that the individual or mutually independent model is not a good fit for the data set. Clearly there must be some interaction variables in the set. 
+
+```{r problem 1b}
+mod.homo <- glm(n ~ (EI+SN+TF+JP)^2, data = data, family = poisson(link=log))
+anova(mod.sat, mod.homo, test = "Chisq")
+```
+In a goodness of fit test we find that the p-value for the difference between the two models is .071 (LRT statistic of 10.16) indicating that the homogeneous association fit is also not a great fit for the model, although it is much better than the mutually independent model.
+
+```{r problem 1c}
+summary(mod.homo)
+```
+According to the summary of our homogeneous association model, the conditional association of S/N and J/P is the strongest, as demonstrated by the low p-value. With a p-val <<.001, we can confirm that there is a statistically significant association between the two variables. 
+
+On the other hand, the conditional association between E/I and J/P, and E/I and T/F are not strong. The high p-values, 0.89 and 0.14 respectively, demonstrate that there is a weak conditional association at play, one that could very well be removed from future models. 
+```{r problem 1d}
+mod.new <- glm(n ~ EI+SN+TF+JP + EI:SN + SN:TF+ SN:JP+ TF:JP, data = data, family = poisson(link=log))
+anova(mod.sat, mod.new, test = "Chisq")
+anova(mod.homo, mod.new, test = "Chisq")
+```
+The new model compares poorly to the saturated model, as shown in the low p-value. It is however, closer to the results of our homogeneous association model, which makes sense given the number of interaction terms at play in the model. Compared with the saturated vs homogenous assosciation test from earlier, the higher p-value indicates that this new modified assosciation model is closer than the original to the saturated model. In other words, it fits the saturated model better.
+
+```{r problem 1e}
+exp(confint(mod.new)["SNs:JPp",])
+```
+We are 95% confident that the conditional odds ratio between the S/N and J/P scales is withing the range .2214 and .3913
+
+```{r problem 1f}
+coef(mod.ind)
+coef(mod.homo)
+coef(mod.sat)
+```
+ind 5 params: log(mu n) = B0 + Bei + Bsn + Btf + Bjp
+homo 11 params: log(mu n) = B0 + Bei + Bsn + Btf + Bjp + Be,s + Be,t + Be,j + Bs,t + Bs,j + Bt,j 
+sat 16 params: log(mu n) = B0 + Bei + Bsn + Btf + Bjp + Be,s + Be,t + Be,j + Bs,t + Bs,j + Bt,j + Be,s,t + Be,s,j + Be,t,p + Bs,t,j + Be,s,t,j
+
+```{r problem 2a}
+data$p <- data$drink/data$n
+data$p
+```
+With 19.05% of people reporting that they drink frequently, ESTP seem to be the most prone to drinking.
+
+```{r problem 2b}
+mod.dr <- glm(drink ~ EI + SN + TF + JP, data = data, family = poisson((link = "log")))
+summary(mod.dr)
+```
+The equation obtained is log(mu drink) = 1.6 -0.23EI + .48SN + .02TF + .06JP
+This is a mutually exclusive log-linear model. The variables are set up as factors with either one value or another. The equation and the corresponding p-vals for each coefficient indicate that there is low and statistically insignificant correlation between drinking and a persons T/F and J/P scale scores.  
+
+```{r problem 2c}
+mod.dr.null <- update(mod.dr,  ~. - EI - SN - TF - JP)
+anova(mod.dr, mod.dr.null, test = "Chisq")
+```
+With such a high p-val, we are unable to reject the null hypothesis. It is possible that the four coefficients are actually zero and have no influence on the model.
+
+```{r problem 2d}
+mod.dr.sat <- glm(drink ~ EI*SN*TF*JP, data = data, family = poisson(link=log))
+anova(mod.dr.sat, mod.dr, test = "Chisq")
+```
+The saturated model and the mutually independent model have an extremely low p-val. With an LRT of 41 and a p-val <<.001, we can confidently say the mutually independent model has a poor fit towards the data. After running the anova function, we have evidence that the mutually independent model has a lack of fit towards the data. 
+
+```{r problem 2e}
+data$drinking <- predict(mod.dr, newdata = data, type = "response")/data$n
+data$drinking
+```
+According to our model, the 13th input has the highest predicted rate of drinking. This actually corresponds to the intj as being the most prone to drinking. This is not the same as before, showcasing the lack of fit this model has. Intj was initially on the lower end of the drinking rates, so this example showcases some of the inefficiencies or faults in the model. 
+
+```{r problem 2f}
+mod2f <- glm(drink ~ EI*SN*TF*JP +EI:drink+SN:drink+TF:drink+JP:drink, data=data, family=poisson)
+exp(coef(mod2f))
+exp(coef(mod.dr))
+```
+The odds ratios are as follows: EI .714, SN .037, TF 5.029, JP .055. These odds ratios are in stark contrast to the mutually independent odds ratios, which is likely because of a change in the number of parameters and changes in actual parameter values. 
